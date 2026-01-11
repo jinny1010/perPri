@@ -264,6 +264,11 @@ export default function UserPage() {
   // API 호출용 헤더
   const getHeaders = () => ({
     'x-notion-token': userData?.notionToken || '',
+    'x-db-posts': userData?.dbIds?.posts || '',
+    'x-db-folders': userData?.dbIds?.folders || '',
+    'x-db-bookmarks': userData?.dbIds?.bookmarks || '',
+    'x-db-themes': userData?.dbIds?.themes || '',
+    'x-db-gallery': userData?.dbIds?.gallery || '',
   });
 
   const fetchFolderInfo = async () => {
@@ -516,14 +521,17 @@ export default function UserPage() {
     }
     
     try {
-      const res = await fetch('/api/verify-token', {
+      // DB 자동 탐색
+      const detectRes = await fetch('/api/detect-dbs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notionToken: apiKeyInput }),
       });
       
-      if (!res.ok) {
-        return alert('유효하지 않은 API 키입니다');
+      const detectData = await detectRes.json();
+      
+      if (!detectRes.ok) {
+        return alert(detectData.message || 'DB 탐색 실패');
       }
       
       // 캐릭터 이름 입력 받기
@@ -536,6 +544,7 @@ export default function UserPage() {
         encryptedId: id,
         characterName: charName,
         notionToken: apiKeyInput,
+        dbIds: detectData.dbIds,
       };
       localStorage.setItem('myPerpage', JSON.stringify(myData));
       setUserData(myData);
@@ -649,6 +658,7 @@ export default function UserPage() {
       formData.append('sub', sub);
       formData.append('title', uploadData.title);
       formData.append('notionToken', userData?.notionToken || '');
+      formData.append('postsDbId', userData?.dbIds?.posts || '');
       if (uploadFile) formData.append('file', uploadFile);
       const res = await fetch('/api/create', { method: 'POST', body: formData });
       const data = await res.json();

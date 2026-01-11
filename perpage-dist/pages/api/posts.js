@@ -7,14 +7,18 @@ export default async function handler(req, res) {
 
   const { sub } = req.query;
 
-  const notionToken = req.headers['x-notion-token'] || process.env.NOTION_TOKEN;
-  const notion = new Client({
-    auth: notionToken,
-  });
+  const notionToken = req.headers['x-notion-token'];
+  const postsDbId = req.headers['x-db-posts'];
+  
+  if (!notionToken || !postsDbId) {
+    return res.status(400).json({ error: 'Token and DB ID required' });
+  }
+  
+  const notion = new Client({ auth: notionToken });
 
   try {
     const response = await notion.databases.query({
-      database_id: process.env.NOTION_DATABASE_ID,
+      database_id: postsDbId,
       sorts: [{ timestamp: 'created_time', direction: 'descending' }],
     });
 

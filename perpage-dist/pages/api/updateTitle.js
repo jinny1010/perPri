@@ -11,10 +11,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'pageId and title are required' });
   }
 
-  const notionToken = req.headers['x-notion-token'] || process.env.NOTION_TOKEN;
-  const notion = new Client({
-    auth: notionToken,
-  });
+  const notionToken = req.headers['x-notion-token'];
+  if (!notionToken) {
+    return res.status(400).json({ error: 'Token required' });
+  }
+  
+  const notion = new Client({ auth: notionToken });
 
   try {
     await notion.pages.update({

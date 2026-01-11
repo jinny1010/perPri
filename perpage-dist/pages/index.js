@@ -66,26 +66,29 @@ export default function Home() {
     setRegistering(true);
     
     try {
-      // API 키 유효성 검사
-      const verifyRes = await fetch('/api/verify-token', {
+      // API 키로 DB 자동 탐색
+      const detectRes = await fetch('/api/detect-dbs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notionToken }),
       });
       
-      if (!verifyRes.ok) {
-        throw new Error('Notion API 키가 유효하지 않습니다');
+      const detectData = await detectRes.json();
+      
+      if (!detectRes.ok) {
+        throw new Error(detectData.message || 'DB 탐색 실패');
       }
       
       // 암호화된 ID 생성
       const encryptedId = encryptNickname(nickname);
       
-      // localStorage에 저장
+      // localStorage에 저장 (DB ID들 포함)
       const myData = {
         nickname,
         encryptedId,
         characterName,
         notionToken,
+        dbIds: detectData.dbIds,
         registeredAt: new Date().toISOString(),
       };
       localStorage.setItem('myPerpage', JSON.stringify(myData));

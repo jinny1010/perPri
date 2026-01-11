@@ -7,14 +7,23 @@ export default async function handler(req, res) {
 
   const { sub } = req.query;
 
-  const notionToken = req.headers['x-notion-token'] || process.env.NOTION_TOKEN;
-  const notion = new Client({
-    auth: notionToken,
-  });
+  const notionToken = req.headers['x-notion-token'];
+  const themesDbId = req.headers['x-db-themes'];
+  
+  if (!notionToken) {
+    return res.status(400).json({ error: 'Token required' });
+  }
+  
+  // themes DB가 없으면 빈 배열 반환
+  if (!themesDbId) {
+    return res.status(200).json({ themes: [] });
+  }
+  
+  const notion = new Client({ auth: notionToken });
 
   try {
     const response = await notion.databases.query({
-      database_id: process.env.NOTION_THEMES_DB_ID,
+      database_id: themesDbId,
       filter: sub ? {
         property: 'sub',
         rich_text: { equals: sub }

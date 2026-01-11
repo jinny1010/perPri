@@ -11,10 +11,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'pageId is required' });
   }
 
-  const notionToken = req.headers['x-notion-token'] || process.env.NOTION_TOKEN;
-  const notion = new Client({
-    auth: notionToken,
-  });
+  const notionToken = req.headers['x-notion-token'];
+  if (!notionToken) {
+    return res.status(400).json({ error: 'Token required' });
+  }
+  
+  const notion = new Client({ auth: notionToken });
 
   try {
     // 노션 페이지 삭제 (archived로 처리)

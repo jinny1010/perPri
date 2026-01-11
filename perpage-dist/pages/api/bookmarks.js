@@ -7,14 +7,23 @@ export default async function handler(req, res) {
 
   const { sub } = req.query;
 
-  const notionToken = req.headers['x-notion-token'] || process.env.NOTION_TOKEN;
-  const notion = new Client({
-    auth: notionToken,
-  });
+  const notionToken = req.headers['x-notion-token'];
+  const bookmarksDbId = req.headers['x-db-bookmarks'];
+  
+  if (!notionToken) {
+    return res.status(400).json({ error: 'Token required' });
+  }
+  
+  // bookmarks DB가 없으면 빈 배열 반환
+  if (!bookmarksDbId) {
+    return res.status(200).json({ bookmarks: [] });
+  }
+  
+  const notion = new Client({ auth: notionToken });
 
   try {
     const response = await notion.databases.query({
-      database_id: process.env.NOTION_BOOKMARK_DB_ID,
+      database_id: bookmarksDbId,
       sorts: [{ timestamp: 'created_time', direction: 'descending' }],
     });
 

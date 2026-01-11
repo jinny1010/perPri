@@ -5,17 +5,23 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // 헤더에서 Notion 토큰 가져오기
+  // 헤더에서 Notion 토큰과 DB ID 가져오기
   const notionToken = req.headers['x-notion-token'];
+  const foldersDbId = req.headers['x-db-folders'];
+  const postsDbId = req.headers['x-db-posts'];
+  
   if (!notionToken) {
     return res.status(401).json({ error: 'Notion token required' });
+  }
+  if (!foldersDbId || !postsDbId) {
+    return res.status(400).json({ error: 'DB IDs required' });
   }
 
   const notion = new Client({ auth: notionToken });
 
   try {
     const foldersResponse = await notion.databases.query({
-      database_id: process.env.NOTION_FOLDERS_DB_ID,
+      database_id: foldersDbId,
     });
 
     const folderMap = {};
@@ -53,7 +59,7 @@ export default async function handler(req, res) {
     }
 
     const postsResponse = await notion.databases.query({
-      database_id: process.env.NOTION_DATABASE_ID,
+      database_id: postsDbId,
     });
 
     for (const page of postsResponse.results) {

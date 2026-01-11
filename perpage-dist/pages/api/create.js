@@ -29,15 +29,14 @@ export default async function handler(req, res) {
     const sub = Array.isArray(fields.sub) ? fields.sub[0] : fields.sub;
     const title = Array.isArray(fields.title) ? fields.title[0] : fields.title;
     const notionToken = Array.isArray(fields.notionToken) ? fields.notionToken[0] : fields.notionToken;
+    const postsDbId = Array.isArray(fields.postsDbId) ? fields.postsDbId[0] : fields.postsDbId;
     const file = files.file ? (Array.isArray(files.file) ? files.file[0] : files.file) : null;
 
-    if (!sub || !title) {
-      return res.status(400).json({ error: 'sub, title are required' });
+    if (!sub || !title || !notionToken || !postsDbId) {
+      return res.status(400).json({ error: 'sub, title, notionToken, postsDbId are required' });
     }
 
-    const notion = new Client({
-      auth: notionToken || process.env.NOTION_TOKEN,
-    });
+    const notion = new Client({ auth: notionToken });
 
     let fileUrl = null;
     let fileName = null;
@@ -78,7 +77,7 @@ export default async function handler(req, res) {
 
     const page = await notion.pages.create({
       parent: {
-        database_id: process.env.NOTION_DATABASE_ID,
+        database_id: postsDbId,
       },
       properties,
     });

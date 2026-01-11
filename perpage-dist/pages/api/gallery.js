@@ -7,10 +7,19 @@ export default async function handler(req, res) {
 
   const { sub } = req.query;
 
-  const notionToken = req.headers['x-notion-token'] || process.env.NOTION_TOKEN;
-  const notion = new Client({
-    auth: notionToken,
-  });
+  const notionToken = req.headers['x-notion-token'];
+  const galleryDbId = req.headers['x-db-gallery'];
+  
+  if (!notionToken) {
+    return res.status(400).json({ error: 'Token required' });
+  }
+  
+  // gallery DB가 없으면 빈 배열 반환
+  if (!galleryDbId) {
+    return res.status(200).json({ gallery: [] });
+  }
+  
+  const notion = new Client({ auth: notionToken });
 
   try {
     const filter = sub ? {
@@ -19,7 +28,7 @@ export default async function handler(req, res) {
     } : undefined;
 
     const response = await notion.databases.query({
-      database_id: process.env.NOTION_GALLERY_DB_ID,
+      database_id: galleryDbId,
       filter
     });
 
