@@ -48,9 +48,9 @@ your-site.vercel.app
 
 3. 환경변수 설정:
 ```
-BLOB_READ_WRITE_TOKEN=vercel_blob_token
 KILLSWITCH=false
 ```
+→ **이게 전부!** DB ID도 Blob 토큰도 필요 없음!
 
 4. Deploy!
 

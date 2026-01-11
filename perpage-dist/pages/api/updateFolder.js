@@ -1,71 +1,44 @@
 import { Client } from '@notionhq/client';
-import { put } from '@vercel/blob';
-import formidable from 'formidable';
-import fs from 'fs';
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const notionToken = req.headers['x-notion-token'] || process.env.NOTION_TOKEN;
-  const notion = new Client({
-    auth: notionToken,
-  });
+  const notionToken = req.headers['x-notion-token'];
+  if (!notionToken) {
+    return res.status(400).json({ error: 'Token required' });
+  }
+  
+  const notion = new Client({ auth: notionToken });
 
   try {
-    const form = formidable({
-      maxFileSize: 10 * 1024 * 1024,
-    });
+    const { folderId, name, color, imageUrl } = req.body;
 
-    const [fields, files] = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        resolve([fields, files]);
-      });
-    });
-
-    const pageId = Array.isArray(fields.pageId) ? fields.pageId[0] : fields.pageId;
-    const name = Array.isArray(fields.name) ? fields.name[0] : fields.name;
-    const color = Array.isArray(fields.color) ? fields.color[0] : fields.color || '#8B0000';
-    const imageFile = files.image ? (Array.isArray(files.image) ? files.image[0] : files.image) : null;
-
-    if (!pageId || !name) {
-      return res.status(400).json({ error: 'pageId and name are required' });
+    if (!folderId) {
+      return res.status(400).json({ error: 'folderId is required' });
     }
 
-    let imageUrl = null;
+    const properties = {};
 
-    if (imageFile) {
-      const fileBuffer = fs.readFileSync(imageFile.filepath);
-      const fileName = `folder_${Date.now()}_${imageFile.originalFilename || 'image.jpg'}`;
-      
-      const blob = await put(fileName, fileBuffer, {
-        access: 'public',
-        contentType: imageFile.mimetype || 'image/jpeg',
-      });
-      
-      imageUrl = blob.url;
-    }
-
-    const properties = {
-      '이름': {
+    // 이름 수정
+    if (name) {
+      properties['이름'] = {
         title: [{ text: { content: name } }],
-      },
-      'sub': {
+      };
+      properties['sub'] = {
         rich_text: [{ text: { content: name } }],
-      },
-      'color': {
-        rich_text: [{ text: { content: color } }],
-      },
-    };
+      };
+    }
 
+    // 색상 수정
+    if (color) {
+      properties['color'] = {
+        rich_text: [{ text: { content: color } }],
+      };
+    }
+
+    // 이미지 수정 (외부 URL)
     if (imageUrl) {
       properties['파일과 미디어'] = {
         files: [{
@@ -76,12 +49,16 @@ export default async function handler(req, res) {
       };
     }
 
+    if (Object.keys(properties).length === 0) {
+      return res.status(400).json({ error: 'Nothing to update' });
+    }
+
     await notion.pages.update({
-      page_id: pageId,
+      page_id: folderId,
       properties,
     });
 
-    res.status(200).json({ success: true, imageUrl });
+    res.status(200).json({ success: true });
   } catch (error) {
     console.error('Notion API Error:', error);
     res.status(500).json({ error: 'Failed to update folder', message: error.message });

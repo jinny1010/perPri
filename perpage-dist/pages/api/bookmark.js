@@ -1,91 +1,27 @@
 import { Client } from '@notionhq/client';
-import { put } from '@vercel/blob';
-import formidable from 'formidable';
-import fs from 'fs';
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const notion = new Client({
-    auth: process.env.NOTION_TOKEN,
-  });
+  const notionToken = req.headers['x-notion-token'];
+  const bookmarksDbId = req.headers['x-db-bookmarks'];
+  
+  if (!notionToken) {
+    return res.status(400).json({ error: 'Token required' });
+  }
+  if (!bookmarksDbId) {
+    return res.status(400).json({ error: 'Bookmarks DB ID required' });
+  }
+
+  const notion = new Client({ auth: notionToken });
 
   try {
-    const form = formidable({
-      maxFileSize: 10 * 1024 * 1024, // 10MB
-    });
-
-    const [fields, files] = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        resolve([fields, files]);
-      });
-    });
-
-    const text = Array.isArray(fields.text) ? fields.text[0] : fields.text;
-    const sourceTitle = Array.isArray(fields.sourceTitle) ? fields.sourceTitle[0] : fields.sourceTitle;
-    const sub = Array.isArray(fields.sub) ? fields.sub[0] : fields.sub;
-    const imageFile = files.image ? (Array.isArray(files.image) ? files.image[0] : files.image) : null;
-    const existingImageUrl = Array.isArray(fields.imageUrl) ? fields.imageUrl[0] : fields.imageUrl;
+    const { text, sourceTitle, sub, imageUrl } = req.body;
 
     if (!text) {
       return res.status(400).json({ error: 'text is required' });
-    }
-
-    let imageUrl = null;
-
-    // 이미지 파일이 있으면 Blob에 업로드
-    if (imageFile) {
-      const fileBuffer = fs.readFileSync(imageFile.filepath);
-      const fileName = `bookmark_${Date.now()}_${imageFile.originalFilename || 'image.jpg'}`;
-      
-      const blob = await put(fileName, fileBuffer, {
-        access: 'public',
-        contentType: imageFile.mimetype || 'image/jpeg',
-      });
-      
-      imageUrl = blob.url;
-    } else if (existingImageUrl) {
-      // Notion URL인지 확인
-      const isNotionUrl = existingImageUrl.includes('notion') || 
-                          existingImageUrl.includes('secure.notion-static.com') ||
-                          existingImageUrl.includes('prod-files-secure');
-      
-      if (isNotionUrl) {
-        // Notion URL은 반드시 다운로드해서 재업로드해야 함
-        try {
-          const response = await fetch(existingImageUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.status}`);
-          }
-          const arrayBuffer = await response.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          const fileName = `bookmark_${Date.now()}_gallery.jpg`;
-          
-          const blob = await put(fileName, buffer, {
-            access: 'public',
-            contentType: 'image/jpeg',
-          });
-          
-          imageUrl = blob.url;
-        } catch (err) {
-          console.error('Failed to re-upload Notion image:', err);
-          // Notion URL은 external로 사용 불가하므로, 이미지 없이 진행
-          // (에러를 던지지 않고 imageUrl을 null로 유지)
-          imageUrl = null;
-        }
-      } else {
-        // 외부 URL은 그대로 사용 가능
-        imageUrl = existingImageUrl;
-      }
     }
 
     // 노션 책갈피 DB에 저장
@@ -104,8 +40,8 @@ export default async function handler(req, res) {
       },
     };
 
-    // 이미지 URL이 있고, Notion URL이 아닌 경우만 추가
-    if (imageUrl) {
+    // 이미지 URL이 있으면 추가 (외부 URL만 가능)
+    if (imageUrl && !imageUrl.includes('notion') && !imageUrl.includes('secure.notion-static.com')) {
       properties['image'] = {
         files: [{
           name: 'bookmark_image',
@@ -117,7 +53,7 @@ export default async function handler(req, res) {
 
     const page = await notion.pages.create({
       parent: {
-        database_id: process.env.NOTION_BOOKMARK_DB_ID,
+        database_id: bookmarksDbId,
       },
       properties,
     });

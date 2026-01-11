@@ -64,6 +64,13 @@ export default function UserPage() {
   const [mainImageFile, setMainImageFile] = useState(null);
   const [mainImageSaving, setMainImageSaving] = useState(false);
   const mainImageInputRef = useRef(null);
+  const [mainImageUrl, setMainImageUrl] = useState('');
+  const [showMainImageGallery, setShowMainImageGallery] = useState(false);
+  
+  // 이름/색상 수정 모달
+  const [showNameEditModal, setShowNameEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState('#8B0000');
   
   // 헤더 표시 상태
   const [showHeader, setShowHeader] = useState(true);
@@ -726,18 +733,52 @@ export default function UserPage() {
 
   // 메인 이미지 수정
   const handleMainImageSave = async () => {
-    if (!mainImageFile) return;
+    if (!mainImageUrl && !mainImageFile) return;
     setMainImageSaving(true);
     try {
-      const formData = new FormData();
-      formData.append('folderId', folderInfo.id);
-      formData.append('image', mainImageFile);
-      const res = await fetch('/api/updateFolder', { method: 'POST', body: formData });
+      // URL로 저장하는 방식
+      const imageUrl = mainImageUrl || (mainImageFile ? URL.createObjectURL(mainImageFile) : null);
+      
+      const res = await fetch('/api/updateFolder', { 
+        method: 'POST', 
+        headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          folderId: folderInfo.id, 
+          imageUrl: mainImageUrl 
+        })
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       showToast('이미지 수정 완료!', 'success');
       setShowMainImageModal(false);
       setMainImageFile(null);
+      setMainImageUrl('');
+      fetchFolderInfo();
+    } catch (err) {
+      showToast('수정 실패: ' + err.message, 'error');
+    } finally {
+      setMainImageSaving(false);
+    }
+  };
+
+  // 이름/색상 저장
+  const handleNameColorSave = async () => {
+    if (!editName.trim()) return;
+    setMainImageSaving(true);
+    try {
+      const res = await fetch('/api/updateFolder', { 
+        method: 'POST', 
+        headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          folderId: folderInfo.id, 
+          name: editName,
+          color: editColor
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showToast('수정 완료!', 'success');
+      setShowNameEditModal(false);
       fetchFolderInfo();
     } catch (err) {
       showToast('수정 실패: ' + err.message, 'error');
@@ -769,16 +810,16 @@ export default function UserPage() {
     if (!bookmarkModal?.text) return;
     setBookmarkSaving(true);
     try {
-      const formData = new FormData();
-      formData.append('text', bookmarkModal.text);
-      formData.append('sourceTitle', sub); // 폴더 이름으로 저장
-      formData.append('sub', sub);
-      if (bookmarkImage) {
-        formData.append('image', bookmarkImage);
-      } else if (bookmarkImageUrl) {
-        formData.append('imageUrl', bookmarkImageUrl);
-      }
-      const res = await fetch('/api/bookmark', { method: 'POST', body: formData });
+      const res = await fetch('/api/bookmark', { 
+        method: 'POST', 
+        headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: bookmarkModal.text,
+          sourceTitle: sub,
+          sub: sub,
+          imageUrl: bookmarkImageUrl || null,
+        })
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       showToast('책갈피 저장!', 'success');
@@ -955,12 +996,14 @@ export default function UserPage() {
 
   // 사이트 비밀번호
   if (showSitePassword) {
+    const savedColor = typeof window !== 'undefined' ? localStorage.getItem(`themeColor_${id}`) || '#667eea' : '#667eea';
     return (
       <>
-        <Head><title>{sub}</title></Head>
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: 20 }}>
-          <div style={{ background: 'white', borderRadius: 20, padding: 40, textAlign: 'center', maxWidth: 320, width: '100%' }}>
+        <Head><title>{userData?.characterName || 'Password'}</title></Head>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(135deg, ${savedColor} 0%, #1a1a2e 100%)`, padding: 20 }}>
+          <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: 40, textAlign: 'center', maxWidth: 320, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ fontSize: 48, marginBottom: 10 }}>🔐</div>
+            <h3 style={{ margin: '0 0 5px 0', color: '#333' }}>{userData?.characterName || ''}</h3>
             <p style={{ color: '#666', marginBottom: 20, fontSize: 14 }}>비밀번호를 입력하세요</p>
             <input 
               type="password" 
@@ -972,7 +1015,7 @@ export default function UserPage() {
               style={{ width: '100%', padding: 14, border: '2px solid #eee', borderRadius: 10, fontSize: 18, textAlign: 'center', letterSpacing: 8, marginBottom: 10, boxSizing: 'border-box' }}
             />
             {sitePasswordError && <p style={{ color: '#e74c3c', fontSize: 13, marginBottom: 10 }}>{sitePasswordError}</p>}
-            <button onClick={handleSitePasswordSubmit} style={{ width: '100%', padding: 14, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none', borderRadius: 10, fontSize: 16, cursor: 'pointer' }}>확인</button>
+            <button onClick={handleSitePasswordSubmit} style={{ width: '100%', padding: 14, background: savedColor, color: 'white', border: 'none', borderRadius: 10, fontSize: 16, cursor: 'pointer' }}>확인</button>
           </div>
         </div>
       </>
@@ -982,6 +1025,12 @@ export default function UserPage() {
   if (!sub) return null;
 
   const themeColor = folderInfo?.color || '#8B0000';
+  
+  // 테마 색상 저장 (비밀번호 화면에서 사용)
+  if (typeof window !== 'undefined' && themeColor) {
+    localStorage.setItem(`themeColor_${id}`, themeColor);
+  }
+  
   const latestBookmarkImage = bookmarks[0]?.imageUrl;
 
   // 뷰어
@@ -1112,19 +1161,29 @@ export default function UserPage() {
               </div>
               <div className="form-group">
                 <label>이미지</label>
-                <div className="bookmark-image-options">
-                  <input type="file" accept="image/*" onChange={(e) => { setBookmarkImage(e.target.files[0]); setBookmarkImageUrl(null); }} />
-                  <button 
-                    type="button" 
-                    className="btn-gallery-pick" 
-                    onClick={async () => { 
-                      await loadGalleryImages(false); // 항상 일반 갤러리만 (private=false)
-                      setShowGalleryPicker(true); 
-                    }}
-                  >
-                    🖼️ 갤러리에서 선택
-                  </button>
-                </div>
+                <input 
+                  type="text" 
+                  value={bookmarkImageUrl || ''} 
+                  onChange={(e) => setBookmarkImageUrl(e.target.value)}
+                  placeholder="이미지 URL (선택사항)"
+                  style={{ marginBottom: 10 }}
+                />
+                <button 
+                  type="button" 
+                  className="btn-gallery-pick" 
+                  onClick={async () => { 
+                    await loadGalleryImages(false);
+                    setShowGalleryPicker(true); 
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  🖼️ 갤러리에서 선택
+                </button>
+                {bookmarkImageUrl && (
+                  <div style={{ marginTop: 10, borderRadius: 8, overflow: 'hidden' }}>
+                    <img src={bookmarkImageUrl} alt="preview" style={{ width: '100%', maxHeight: 100, objectFit: 'cover' }} />
+                  </div>
+                )}
               </div>
               <div className="modal-buttons">
                 <button className="btn-cancel" onClick={() => { setBookmarkModal(null); setBookmarkImage(null); setBookmarkImageUrl(null); }}>취소</button>
@@ -1251,7 +1310,15 @@ export default function UserPage() {
               />
             </div>
             <div className="deco-footer">
-              <div className="big-name-display" style={{ WebkitTextStroke: `2px ${themeColor}` }}>
+              <div 
+                className="big-name-display" 
+                style={{ WebkitTextStroke: `2px ${themeColor}`, cursor: 'pointer' }}
+                onClick={() => {
+                  setEditName(sub);
+                  setEditColor(themeColor);
+                  setShowNameEditModal(true);
+                }}
+              >
                 {(() => {
                   const nameParts = sub.split(' ');
                   // 가장 긴 단어 길이 체크
@@ -1423,33 +1490,103 @@ export default function UserPage() {
 
       {/* 메인 이미지 수정 모달 */}
       {showMainImageModal && (
-        <div className="modal-overlay" onClick={() => { setShowMainImageModal(false); setMainImageFile(null); }}>
+        <div className="modal-overlay" onClick={() => { setShowMainImageModal(false); setMainImageUrl(''); setShowMainImageGallery(false); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>🖼️ 메인 이미지 수정</h3>
+            
+            {!showMainImageGallery ? (
+              <>
+                <div className="form-group">
+                  <label>이미지 URL</label>
+                  <input 
+                    type="text" 
+                    value={mainImageUrl} 
+                    onChange={(e) => setMainImageUrl(e.target.value)}
+                    placeholder="https://..."
+                  />
+                </div>
+                {mainImageUrl && (
+                  <div style={{ marginBottom: 15, borderRadius: 10, overflow: 'hidden' }}>
+                    <img src={mainImageUrl} alt="preview" style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }} />
+                  </div>
+                )}
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    await loadGalleryImages(false);
+                    setShowMainImageGallery(true);
+                  }}
+                  style={{ width: '100%', padding: 12, background: '#f0f0f0', border: 'none', borderRadius: 10, marginBottom: 15, cursor: 'pointer' }}
+                >
+                  🖼️ 갤러리에서 선택
+                </button>
+                <div className="modal-buttons">
+                  <button className="btn-cancel" onClick={() => { setShowMainImageModal(false); setMainImageUrl(''); }}>취소</button>
+                  <button className="btn-submit" onClick={handleMainImageSave} disabled={!mainImageUrl || mainImageSaving}>
+                    {mainImageSaving ? '저장 중...' : '저장'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="gallery-grid" style={{ maxHeight: 300, overflowY: 'auto' }}>
+                  {galleryLoading && <p className="loading-text">로딩 중...</p>}
+                  {!galleryLoading && galleryImages.map((img, i) => (
+                    <div key={i} className="gallery-item" onClick={() => { 
+                      setMainImageUrl(img.url); 
+                      setShowMainImageGallery(false); 
+                    }}>
+                      <img src={img.url} alt={img.name} />
+                    </div>
+                  ))}
+                  {!galleryLoading && galleryImages.length === 0 && <p className="empty">갤러리가 비어있습니다</p>}
+                </div>
+                <button 
+                  onClick={() => setShowMainImageGallery(false)}
+                  style={{ width: '100%', padding: 12, background: '#333', color: 'white', border: 'none', borderRadius: 10, marginTop: 15, cursor: 'pointer' }}
+                >
+                  ← 돌아가기
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 이름/색상 수정 모달 */}
+      {showNameEditModal && (
+        <div className="modal-overlay" onClick={() => setShowNameEditModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>✏️ 이름 & 색상 수정</h3>
             <div className="form-group">
-              <div 
-                className="file-drop" 
-                onClick={() => mainImageInputRef.current?.click()}
-                style={{ 
-                  backgroundImage: mainImageFile ? `url(${URL.createObjectURL(mainImageFile)})` : 'none',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  minHeight: '150px'
-                }}
-              >
-                {!mainImageFile && '클릭하여 이미지 선택'}
+              <label>이름</label>
+              <input 
+                type="text" 
+                value={editName} 
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="캐릭터 이름"
+              />
+            </div>
+            <div className="form-group">
+              <label>테마 색상</label>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <input 
-                  ref={mainImageInputRef}
-                  type="file" 
-                  accept="image/*"
-                  onChange={(e) => setMainImageFile(e.target.files[0])}
-                  style={{ display: 'none' }}
+                  type="color" 
+                  value={editColor} 
+                  onChange={(e) => setEditColor(e.target.value)}
+                  style={{ width: 50, height: 40, border: 'none', cursor: 'pointer' }}
+                />
+                <input 
+                  type="text" 
+                  value={editColor} 
+                  onChange={(e) => setEditColor(e.target.value)}
+                  style={{ flex: 1 }}
                 />
               </div>
             </div>
             <div className="modal-buttons">
-              <button className="btn-cancel" onClick={() => { setShowMainImageModal(false); setMainImageFile(null); }}>취소</button>
-              <button className="btn-submit" onClick={handleMainImageSave} disabled={!mainImageFile || mainImageSaving}>
+              <button className="btn-cancel" onClick={() => setShowNameEditModal(false)}>취소</button>
+              <button className="btn-submit" onClick={handleNameColorSave} disabled={mainImageSaving}>
                 {mainImageSaving ? '저장 중...' : '저장'}
               </button>
             </div>
