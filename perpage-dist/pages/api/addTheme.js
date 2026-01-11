@@ -1,49 +1,24 @@
 import { Client } from '@notionhq/client';
-import { put } from '@vercel/blob';
-import { IncomingForm } from 'formidable';
-import fs from 'fs';
-
-export const config = {
-  api: { bodyParser: false }
-};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const notion = new Client({
-    auth: process.env.NOTION_TOKEN,
-  });
+  const notionToken = req.headers['x-notion-token'];
+  const themesDbId = req.headers['x-db-themes'];
+  
+  if (!notionToken || !themesDbId) {
+    return res.status(400).json({ error: 'Token and themes DB ID required' });
+  }
+
+  const notion = new Client({ auth: notionToken });
 
   try {
-    const form = new IncomingForm();
-    const [fields, files] = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        resolve([fields, files]);
-      });
-    });
-
-    const name = Array.isArray(fields.name) ? fields.name[0] : fields.name;
-    const sub = Array.isArray(fields.sub) ? fields.sub[0] : fields.sub;
-    const cssFile = files.cssFile?.[0] || files.cssFile;
+    const { name, sub, cssUrl } = req.body;
 
     if (!name || !sub) {
       return res.status(400).json({ error: 'Name and sub are required' });
-    }
-
-    let cssUrl = null;
-
-    // CSS 파일 업로드
-    if (cssFile) {
-      const fileBuffer = fs.readFileSync(cssFile.filepath);
-      const fileName = `theme_${Date.now()}_${cssFile.originalFilename}`;
-      const blob = await put(fileName, fileBuffer, {
-        access: 'public',
-        contentType: 'text/css'
-      });
-      cssUrl = blob.url;
     }
 
     // Notion에 저장
@@ -67,7 +42,7 @@ export default async function handler(req, res) {
     }
 
     const page = await notion.pages.create({
-      parent: { database_id: process.env.NOTION_THEMES_DB_ID },
+      parent: { database_id: themesDbId },
       properties
     });
 
