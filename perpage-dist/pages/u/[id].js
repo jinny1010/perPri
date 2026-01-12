@@ -362,8 +362,10 @@ export default function UserPage() {
 
   const fetchGallery = async () => {
     try {
+      console.log('fetchGallery called, headers:', getHeaders());
       const res = await fetch(`/api/gallery?sub=${encodeURIComponent(sub)}`, { headers: getHeaders() });
       const data = await res.json();
+      console.log('Gallery response:', res.ok, data);
       if (res.ok) {
         const galleryData = data.gallery || [];
         setGallery(galleryData);
@@ -372,6 +374,8 @@ export default function UserPage() {
         // private 체크박스가 true인 항목이 있는지 확인
         const hasPrivate = galleryData.some(g => g.isPrivate === true);
         setIsPrivateGallery(hasPrivate);
+      } else {
+        console.error('Gallery API error:', data);
       }
     } catch (err) {
       console.error('갤러리 로드 실패:', err);
@@ -486,6 +490,10 @@ export default function UserPage() {
   const openGallery = async () => {
     setVisibleCount(30);
     setShowGalleryModal(true);
+    // gallery가 비어있으면 먼저 로드
+    if (gallery.length === 0) {
+      await fetchGallery();
+    }
     await loadGalleryImages(false); // private=false 인 것만
   };
   
@@ -503,6 +511,10 @@ export default function UserPage() {
       setPasswordError('');
       setVisibleCount(30);
       setShowGalleryModal(true);
+      // gallery가 비어있으면 먼저 로드
+      if (gallery.length === 0) {
+        await fetchGallery();
+      }
       await loadGalleryImages(true); // private=true 인 것만
     } else {
       setPasswordError('비밀번호가 틀렸습니다');
@@ -736,25 +748,33 @@ export default function UserPage() {
     if (!mainImageUrl && !mainImageFile) return;
     setMainImageSaving(true);
     try {
-      // URL로 저장하는 방식
-      const imageUrl = mainImageUrl || (mainImageFile ? URL.createObjectURL(mainImageFile) : null);
+      console.log('=== handleMainImageSave ===');
+      console.log('folderInfo:', folderInfo);
+      console.log('mainImageUrl:', mainImageUrl);
+      console.log('headers:', getHeaders());
+      
+      const body = { 
+        folderId: folderInfo?.id, 
+        imageUrl: mainImageUrl 
+      };
+      console.log('request body:', body);
       
       const res = await fetch('/api/updateFolder', { 
         method: 'POST', 
         headers: { ...getHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          folderId: folderInfo.id, 
-          imageUrl: mainImageUrl 
-        })
+        body: JSON.stringify(body)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      console.log('response:', res.status, data);
+      
+      if (!res.ok) throw new Error(data.message || data.error);
       showToast('이미지 수정 완료!', 'success');
       setShowMainImageModal(false);
       setMainImageFile(null);
       setMainImageUrl('');
       fetchFolderInfo();
     } catch (err) {
+      console.error('handleMainImageSave error:', err);
       showToast('수정 실패: ' + err.message, 'error');
     } finally {
       setMainImageSaving(false);
@@ -766,21 +786,33 @@ export default function UserPage() {
     if (!editName.trim()) return;
     setMainImageSaving(true);
     try {
+      console.log('=== handleNameColorSave ===');
+      console.log('folderInfo:', folderInfo);
+      console.log('editName:', editName);
+      console.log('editColor:', editColor);
+      console.log('headers:', getHeaders());
+      
+      const body = { 
+        folderId: folderInfo?.id, 
+        name: editName,
+        color: editColor
+      };
+      console.log('request body:', body);
+      
       const res = await fetch('/api/updateFolder', { 
         method: 'POST', 
         headers: { ...getHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          folderId: folderInfo.id, 
-          name: editName,
-          color: editColor
-        })
+        body: JSON.stringify(body)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      console.log('response:', res.status, data);
+      
+      if (!res.ok) throw new Error(data.message || data.error);
       showToast('수정 완료!', 'success');
       setShowNameEditModal(false);
       fetchFolderInfo();
     } catch (err) {
+      console.error('handleNameColorSave error:', err);
       showToast('수정 실패: ' + err.message, 'error');
     } finally {
       setMainImageSaving(false);

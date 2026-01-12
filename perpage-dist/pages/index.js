@@ -94,7 +94,8 @@ export default function Home() {
       localStorage.setItem('myPerpage', JSON.stringify(myData));
       
       // 완료
-      const link = `${window.location.origin}/u/${encryptedId}`;
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const link = `${baseUrl}/u/${encryptedId}`;
       setGeneratedLink(link);
       setRegistered(true);
       
