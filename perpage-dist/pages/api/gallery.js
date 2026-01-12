@@ -22,22 +22,29 @@ export default async function handler(req, res) {
   const notion = new Client({ auth: notionToken });
 
   try {
-    // 필터 없이 전체 조회 (sub 속성이 없을 수도 있으므로)
+    console.log('Gallery API - querying DB:', galleryDbId);
+    
+    // 필터 없이 전체 조회
     const response = await notion.databases.query({
       database_id: galleryDbId,
     });
+
+    console.log('Gallery API - results count:', response.results.length);
 
     const gallery = [];
     
     response.results.forEach(page => {
       const props = page.properties;
+      console.log('Gallery page props keys:', Object.keys(props));
+      
       const name = props['이름']?.title?.[0]?.plain_text || '';
+      // sub 속성이 없을 수도 있음
       const subValue = props['sub']?.rich_text?.[0]?.plain_text || '';
       const favorite = props['즐겨찾기']?.checkbox || false;
       const isPrivate = props['private']?.checkbox || false;
       const files = props['파일과 미디어']?.files || [];
       
-      // sub 필터링 (클라이언트에서 하던 걸 여기서)
+      // sub 필터링 (sub가 있는 경우만)
       if (sub && subValue && subValue !== sub) {
         return; // skip
       }

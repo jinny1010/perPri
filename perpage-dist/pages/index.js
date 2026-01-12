@@ -79,6 +79,23 @@ export default function Home() {
         throw new Error(detectData.message || 'DB 탐색 실패');
       }
       
+      // Folders DB에 캐릭터 폴더 생성
+      const createFolderRes = await fetch('/api/createFolder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          notionToken,
+          foldersDbId: detectData.dbIds.folders,
+          name: characterName,
+        }),
+      });
+      
+      if (!createFolderRes.ok) {
+        const err = await createFolderRes.json();
+        console.error('폴더 생성 실패:', err);
+        // 폴더 생성 실패해도 계속 진행 (이미 있을 수 있음)
+      }
+      
       // 암호화된 ID 생성
       const encryptedId = encryptNickname(nickname);
       
