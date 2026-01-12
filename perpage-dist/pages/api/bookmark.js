@@ -1,4 +1,5 @@
 import { Client } from '@notionhq/client';
+import { put } from '@vercel/blob';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,6 +8,7 @@ export default async function handler(req, res) {
 
   const notionToken = req.headers['x-notion-token'];
   const bookmarksDbId = req.headers['x-db-bookmarks'];
+  const blobToken = req.headers['x-blob-token'];
   
   if (!notionToken) {
     return res.status(400).json({ error: 'Token required' });
@@ -40,13 +42,48 @@ export default async function handler(req, res) {
       },
     };
 
-    // 이미지 URL이 있으면 추가 (외부 URL만 가능)
-    if (imageUrl && !imageUrl.includes('notion') && !imageUrl.includes('secure.notion-static.com')) {
+    // 이미지 URL 처리
+    let finalImageUrl = null;
+    
+    if (imageUrl) {
+      const isNotionUrl = 
+        imageUrl.includes('notion') || 
+        imageUrl.includes('secure.notion-static.com') ||
+        imageUrl.includes('prod-files-secure.s3') ||
+        imageUrl.includes('s3.us-west-2.amazonaws.com');
+      
+      if (isNotionUrl && blobToken) {
+        // Notion URL이고 Blob 토큰이 있으면 재업로드
+        try {
+          const response = await fetch(imageUrl);
+          if (response.ok) {
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const fileName = `bookmark_${Date.now()}.jpg`;
+            
+            const blob = await put(fileName, buffer, {
+              access: 'public',
+              contentType: 'image/jpeg',
+              token: blobToken,
+            });
+            
+            finalImageUrl = blob.url;
+          }
+        } catch (err) {
+          console.error('Failed to re-upload Notion image:', err);
+        }
+      } else if (!isNotionUrl) {
+        // 외부 URL은 그대로 사용
+        finalImageUrl = imageUrl;
+      }
+    }
+    
+    if (finalImageUrl) {
       properties['image'] = {
         files: [{
           name: 'bookmark_image',
           type: 'external',
-          external: { url: imageUrl },
+          external: { url: finalImageUrl },
         }],
       };
     }
@@ -61,7 +98,7 @@ export default async function handler(req, res) {
     res.status(200).json({ 
       success: true, 
       pageId: page.id,
-      imageUrl,
+      imageUrl: finalImageUrl,
     });
 
   } catch (error) {

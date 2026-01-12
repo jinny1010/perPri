@@ -30,6 +30,7 @@ export default async function handler(req, res) {
     const title = Array.isArray(fields.title) ? fields.title[0] : fields.title;
     const notionToken = Array.isArray(fields.notionToken) ? fields.notionToken[0] : fields.notionToken;
     const postsDbId = Array.isArray(fields.postsDbId) ? fields.postsDbId[0] : fields.postsDbId;
+    const blobToken = Array.isArray(fields.blobToken) ? fields.blobToken[0] : fields.blobToken;
     const file = files.file ? (Array.isArray(files.file) ? files.file[0] : files.file) : null;
 
     if (!sub || !title || !notionToken || !postsDbId) {
@@ -41,8 +42,8 @@ export default async function handler(req, res) {
     let fileUrl = null;
     let fileName = null;
 
-    // 파일이 있으면 Blob에 업로드
-    if (file) {
+    // 파일이 있고 Blob 토큰이 있으면 업로드
+    if (file && blobToken) {
       try {
         const fileBuffer = fs.readFileSync(file.filepath);
         fileName = file.originalFilename || 'chat.jsonl';
@@ -50,6 +51,7 @@ export default async function handler(req, res) {
         const blob = await put(`posts/${Date.now()}_${fileName}`, fileBuffer, {
           access: 'public',
           contentType: 'application/json',
+          token: blobToken,
         });
         
         fileUrl = blob.url;

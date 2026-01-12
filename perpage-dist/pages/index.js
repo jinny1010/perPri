@@ -26,6 +26,7 @@ export default function Home() {
   const [nickname, setNickname] = useState('');
   const [notionToken, setNotionToken] = useState('');
   const [characterName, setCharacterName] = useState('');
+  const [blobToken, setBlobToken] = useState('');
   const [registering, setRegistering] = useState(false);
   
   const [registered, setRegistered] = useState(false);
@@ -105,6 +106,7 @@ export default function Home() {
         encryptedId,
         characterName,
         notionToken,
+        blobToken: blobToken || null,
         dbIds: detectData.dbIds,
         registeredAt: new Date().toISOString(),
       };
@@ -242,6 +244,12 @@ export default function Home() {
             <label>Notion API 키</label>
             <input type="password" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} placeholder="secret_xxxxx..." />
             <small><a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer">Notion에서 API 키 발급받기 →</a></small>
+          </div>
+          
+          <div className="form-group">
+            <label>Vercel Blob 토큰 <span style={{color: '#888', fontWeight: 'normal'}}>(선택)</span></label>
+            <input type="password" value={blobToken} onChange={(e) => setBlobToken(e.target.value)} placeholder="vercel_blob_xxxxx..." />
+            <small>이미지 업로드용 · 없으면 URL 입력만 가능</small>
           </div>
           
           <button className="register-btn" onClick={handleRegister} disabled={registering}>

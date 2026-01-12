@@ -276,6 +276,7 @@ export default function UserPage() {
     'x-db-bookmarks': userData?.dbIds?.bookmarks || '',
     'x-db-themes': userData?.dbIds?.themes || '',
     'x-db-gallery': userData?.dbIds?.gallery || '',
+    'x-blob-token': userData?.blobToken || '',
   });
 
   const fetchFolderInfo = async () => {
@@ -683,11 +684,12 @@ export default function UserPage() {
       formData.append('title', uploadData.title);
       formData.append('notionToken', userData?.notionToken || '');
       formData.append('postsDbId', userData?.dbIds?.posts || '');
+      formData.append('blobToken', userData?.blobToken || '');
       if (uploadFile) formData.append('file', uploadFile);
       const res = await fetch('/api/create', { method: 'POST', body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
-      showToast('등록 완료!', 'success');
+      showToast(data.message || '등록 완료!', 'success');
       setShowModal(false);
       setUploadData({ title: '' });
       setUploadFile(null);
