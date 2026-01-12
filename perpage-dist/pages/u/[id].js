@@ -33,6 +33,7 @@ export default function UserPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [newSitePassword, setNewSitePassword] = useState('');
   const [newGalleryPassword, setNewGalleryPassword] = useState('');
+  const [newBlobToken, setNewBlobToken] = useState('');
   
   const [folderInfo, setFolderInfo] = useState(null);
   const [folderIndex, setFolderIndex] = useState(0);
@@ -594,8 +595,16 @@ export default function UserPage() {
     }
     localStorage.setItem(`sitePasswordEnabled_${id}`, sitePasswordEnabled.toString());
     
+    // Blob 토큰 저장
+    if (newBlobToken) {
+      const updatedUserData = { ...userData, blobToken: newBlobToken };
+      localStorage.setItem('myPerpage', JSON.stringify(updatedUserData));
+      setUserData(updatedUserData);
+    }
+    
     setNewSitePassword('');
     setNewGalleryPassword('');
+    setNewBlobToken('');
     setShowSettings(false);
     showToast('설정 저장됨', 'success');
   };
@@ -1714,6 +1723,16 @@ export default function UserPage() {
                 onChange={(e) => setNewGalleryPassword(e.target.value)}
                 placeholder="새 비밀번호"
               />
+            </div>
+            <div className="form-group" style={{ borderTop: '1px solid #eee', paddingTop: 15, marginTop: 10 }}>
+              <label>Vercel Blob 토큰</label>
+              <input 
+                type="password"
+                value={newBlobToken}
+                onChange={(e) => setNewBlobToken(e.target.value)}
+                placeholder={userData?.blobToken ? '저장됨 (변경하려면 입력)' : '이미지 업로드용 (선택)'}
+              />
+              <small style={{ color: '#888', fontSize: 12 }}>파일/이미지 업로드에 필요</small>
             </div>
             <div className="modal-buttons">
               <button className="btn-cancel" onClick={() => setShowSettings(false)}>취소</button>
