@@ -1,18 +1,15 @@
 import { Client } from '@notionhq/client';
+import { put } from '@vercel/blob';
 
 export default async function handler(req, res) {
-  console.log('=== updateFolder API ===');
-  console.log('method:', req.method);
-  console.log('headers x-notion-token:', req.headers['x-notion-token'] ? 'exists' : 'missing');
-  console.log('body:', req.body);
-  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const notionToken = req.headers['x-notion-token'];
+  const blobToken = req.headers['x-blob-token'];
+  
   if (!notionToken) {
-    console.log('ERROR: Token missing');
     return res.status(400).json({ error: 'Token required' });
   }
   
@@ -20,10 +17,8 @@ export default async function handler(req, res) {
 
   try {
     const { folderId, name, color, imageUrl } = req.body;
-    console.log('Parsed:', { folderId, name, color, imageUrl });
 
     if (!folderId) {
-      console.log('ERROR: folderId missing');
       return res.status(400).json({ error: 'folderId is required' });
     }
 
@@ -43,34 +38,67 @@ export default async function handler(req, res) {
       };
     }
 
-    // 이미지 수정 (외부 URL)
+    // 이미지 수정
     if (imageUrl) {
-      properties['파일과 미디어'] = {
-        files: [{
-          name: 'folder_image',
-          type: 'external',
-          external: { url: imageUrl },
-        }],
-      };
+      const isNotionUrl = 
+        imageUrl.includes('notion') || 
+        imageUrl.includes('secure.notion-static.com') ||
+        imageUrl.includes('prod-files-secure.s3') ||
+        imageUrl.includes('s3.us-west-2.amazonaws.com');
+      
+      let finalImageUrl = null;
+      
+      if (isNotionUrl && blobToken) {
+        // Notion URL이고 Blob 토큰이 있으면 재업로드
+        try {
+          const response = await fetch(imageUrl);
+          if (response.ok) {
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const fileName = `folder_${Date.now()}.jpg`;
+            
+            const blob = await put(fileName, buffer, {
+              access: 'public',
+              contentType: 'image/jpeg',
+              token: blobToken,
+            });
+            
+            finalImageUrl = blob.url;
+          }
+        } catch (err) {
+          console.error('Failed to re-upload Notion image:', err);
+          return res.status(400).json({ error: 'Notion 이미지 재업로드 실패. Blob 토큰을 확인하세요.' });
+        }
+      } else if (isNotionUrl && !blobToken) {
+        return res.status(400).json({ error: 'Notion 이미지 사용 불가. 설정에서 Blob 토큰을 등록하거나 외부 URL을 사용하세요.' });
+      } else {
+        // 외부 URL은 그대로 사용
+        finalImageUrl = imageUrl;
+      }
+      
+      if (finalImageUrl) {
+        properties['파일과 미디어'] = {
+          files: [{
+            name: 'folder_image',
+            type: 'external',
+            external: { url: finalImageUrl },
+          }],
+        };
+      }
     }
 
-    console.log('properties to update:', JSON.stringify(properties));
-
     if (Object.keys(properties).length === 0) {
-      console.log('ERROR: Nothing to update');
       return res.status(400).json({ error: 'Nothing to update' });
     }
 
-    console.log('Calling notion.pages.update with page_id:', folderId);
     await notion.pages.update({
       page_id: folderId,
       properties,
     });
 
-    console.log('SUCCESS');
     res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Notion API Error:', error.message, error.code);
+    console.error('Notion API Error:', error.message);
     res.status(500).json({ error: 'Failed to update folder', message: error.message });
   }
 }

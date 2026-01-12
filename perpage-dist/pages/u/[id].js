@@ -727,9 +727,12 @@ export default function UserPage() {
   const handleDeleteBookmark = async () => {
     if (!deleteTarget?.id) return;
     try {
-      const res = await fetch(`/api/deleteBookmark?pageId=${deleteTarget.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/deleteBookmark?pageId=${deleteTarget.id}`, { 
+        method: 'DELETE',
+        headers: getHeaders()
+      });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) throw new Error(data.message || data.error);
       showToast('책갈피 삭제 완료!', 'success');
       setDeleteTarget(null);
       fetchBookmarks();
@@ -839,11 +842,11 @@ export default function UserPage() {
     try {
       const res = await fetch('/api/deleteMessage', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...getHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ pageId: selectedPost.id, messageIndex: index }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) throw new Error(data.message || data.error);
       const updated = [...messages];
       updated.splice(index, 1);
       setMessages(updated);
