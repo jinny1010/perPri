@@ -35,19 +35,24 @@ export default async function handler(req, res) {
     
     response.results.forEach(page => {
       const props = page.properties;
-      console.log('Gallery page props keys:', Object.keys(props));
+      console.log('Gallery page props:', JSON.stringify(props, null, 2));
       
-      const name = props['이름']?.title?.[0]?.plain_text || '';
-      // sub 속성이 없을 수도 있음
-      const subValue = props['sub']?.rich_text?.[0]?.plain_text || '';
-      const favorite = props['즐겨찾기']?.checkbox || false;
+      // 속성 이름이 한글/영어 둘 다 지원
+      const name = props['이름']?.title?.[0]?.plain_text || 
+                   props['name']?.title?.[0]?.plain_text || 
+                   props['name']?.rich_text?.[0]?.plain_text || '';
+      const subValue = props['sub']?.rich_text?.[0]?.plain_text || 
+                       props['sub']?.select?.name || '';
+      const favorite = props['즐겨찾기']?.checkbox || 
+                       props['favorite']?.checkbox || false;
       const isPrivate = props['private']?.checkbox || false;
-      const files = props['파일과 미디어']?.files || [];
       
-      // sub 필터링 (sub가 있는 경우만)
-      if (sub && subValue && subValue !== sub) {
-        return; // skip
-      }
+      // 파일 속성도 여러 이름 지원
+      const files = props['파일과 미디어']?.files || 
+                    props['image']?.files || 
+                    props['파일']?.files || [];
+      
+      console.log('Parsed gallery item:', { name, subValue, filesCount: files.length, isPrivate });
       
       // 한 행의 모든 파일 처리
       files.forEach((file, index) => {
